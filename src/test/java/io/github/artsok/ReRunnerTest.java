@@ -1,10 +1,7 @@
 package io.github.artsok;
 
 
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -13,6 +10,7 @@ import org.junit.platform.launcher.LauncherDiscoveryRequest;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
 import org.junit.platform.launcher.core.LauncherFactory;
 import org.junit.platform.launcher.listeners.SummaryGeneratingListener;
+import org.mockito.internal.matchers.Null;
 
 import java.io.IOException;
 import java.lang.annotation.ElementType;
@@ -41,6 +39,7 @@ import static org.junit.platform.engine.discovery.DiscoverySelectors.selectMetho
  */
 public class ReRunnerTest {
     private ThreadLocalRandom random = ThreadLocalRandom.current();
+    private static int counter;
 
     @ProgrammaticTest
     @RepeatedIfExceptionsTest(repeats = 2)
@@ -166,8 +165,61 @@ public class ReRunnerTest {
         throw new IOException("Exception in I/O operation");
     }
 
+    @ProgrammaticTest
+    @DisplayName("fail at all without error message")
+    @RepeatedIfExceptionsTest(repeats = 1,maxExceptions = 1)
+    public void reRunTestStopRetryIfSameExceptions1() {
+        throw new RuntimeException();
+    }
+
+    @Test
+    void reRunTestStopRetryIfSame1() throws Exception {
+        assertTestResults("reRunTestStopRetryIfSameExceptions1", false, 2, 1, 0);
+    }
+
+    @ProgrammaticTest
+    @DisplayName("fail but retry should be stop at Repetition 2 of 3")
+    @RepeatedIfExceptionsTest(repeats = 3,maxExceptions = 2)
+    public void reRunTestStopRetryIfSameExceptions2() {
+        throw new RuntimeException("same error message");
+    }
+
+    @Test
+    void reRunTestStopRetryIfSame2() throws Exception {
+        assertTestResults("reRunTestStopRetryIfSameExceptions2", false, 4, 3, 0);
+    }
+
+    @ProgrammaticTest
+    @DisplayName("fail at Repetition 4 of 4")
+    @RepeatedIfExceptionsTest(repeats = 4,maxExceptions = 2)
+    public void reRunTestStopRetryIfSameExceptions3() {
+        throw new RuntimeException("dynamic error message: " + random.nextInt());
+    }
+
+    @Test
+    void reRunTestStopRetryIfSame3() throws Exception {
+        assertTestResults("reRunTestStopRetryIfSameExceptions3", false, 5, 4, 0);
+    }
+
+    @ProgrammaticTest
+    @DisplayName("fail at Repetition 3 of 3(different exception every time)")
+    @RepeatedIfExceptionsTest(repeats = 3,maxExceptions = 2)
+    public void reRunTestStopRetryIfSameExceptions4() {
+        counter ++;
+        if (counter % 2 == 0) {
+            throw new NullPointerException("same error message");
+        } else {
+            throw new RuntimeException("same error message");
+        }
+    }
+
+    @Test
+    void reRunTestStopRetryIfSame4() throws Exception {
+        assertTestResults("reRunTestStopRetryIfSameExceptions4", false, 4, 3, 0);
+    }
+
     /**
-     * By default total repeats = 1 and minimum success = 1.
+     * By default total repeats = 1 andI minimum success = 1.
      * If the test failed by this way start to repeat it by one time with one minimum success.
      *
      * This example without exceptions.

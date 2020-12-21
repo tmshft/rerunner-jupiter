@@ -104,4 +104,11 @@ public @interface RepeatedIfExceptionsTest {
      * @return Short name
      */
     String name() default SHORT_DISPLAY_NAME;
+
+    /**
+     * Stop retry if same exceptions(and same message) are thrown.
+     * even not reach max retry time.
+     * @return max count of same exceptions
+     */
+    int maxExceptions() default 0;
 }

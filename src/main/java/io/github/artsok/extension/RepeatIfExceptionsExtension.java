@@ -56,6 +56,9 @@ public class RepeatIfExceptionsExtension implements TestTemplateInvocationContex
     private List<Boolean> historyExceptionAppear;
     private long suspend = 0L;
     private static final int CURRENT_RUN = 1;
+    private List<Throwable> thrownExceptions = new ArrayList<>();
+    private static int maxExceptionThrown = 0;
+    private static boolean notAllowRetry = false;
 
 
     /**
@@ -93,6 +96,7 @@ public class RepeatIfExceptionsExtension implements TestTemplateInvocationContex
 
         totalTestRuns = totalRepeats + CURRENT_RUN;
         suspend = annotationParams.suspend();
+        maxExceptionThrown = annotationParams.maxExceptions();
         historyExceptionAppear = Collections.synchronizedList(new ArrayList<>());
 
         String displayName = extensionContext.getDisplayName();
@@ -150,10 +154,17 @@ public class RepeatIfExceptionsExtension implements TestTemplateInvocationContex
 
     @Override
     public void handleTestExecutionException(ExtensionContext context, Throwable throwable) throws Throwable {
+        if (notAllowRetry) {
+            throw new TestAbortedException("Do not fail completely, but repeat the test", throwable);
+        }
         if (appearedExceptionDoesNotAllowRepetitions(throwable)) {
             throw throwable;
         }
         repeatableExceptionAppeared = true;
+
+        if (sameExceptionsAppearedOverMaxTime(throwable)) {
+            throw throwable;
+        }
 
         long currentSuccessCount = historyExceptionAppear.stream().filter(exceptionAppeared -> !exceptionAppeared).count();
         if (currentSuccessCount < minSuccess) {
@@ -161,6 +172,28 @@ public class RepeatIfExceptionsExtension implements TestTemplateInvocationContex
                 throw new TestAbortedException("Do not fail completely, but repeat the test", throwable);
             } else {
                 throw throwable;
+            }
+        }
+    }
+
+    private boolean sameExceptionsAppearedOverMaxTime(Throwable throwable) {
+        if (maxExceptionThrown == 0) {
+            return false;
+        } else {
+            thrownExceptions.add(throwable);
+            int count = thrownExceptions.size();
+            if (count > maxExceptionThrown) {
+                int i = 1;
+                boolean result = true;
+                while (i < maxExceptionThrown + 2 && result) {
+                    result = throwable.getClass().equals(thrownExceptions.get(count - i).getClass())
+                            && throwable.getMessage().equals(thrownExceptions.get(count - i).getMessage());
+                    i++;
+                }
+                notAllowRetry = result;
+                return result;
+            } else {
+                return false;
             }
         }
     }
